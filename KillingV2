@@ -1,0 +1,842 @@
+local library = loadstring(game:HttpGet("https://raw.githubusercontent.com/memejames/elerium-v2-ui-library//main/Library", true))()
+
+local window = library:AddWindow("💀 Torturer V2 💀 || D0NTR4N B1TCH - Rennygoat & Kentak Priv Tourture Machine!", {
+    main_color = Color3.fromRGB(0, 0, 0),
+    min_size = Vector2.new(640, 600),
+    can_resize = false,
+})
+
+
+
+local KillingTab = window:AddTab("Killing")
+local HealthTab = window:AddTab("Killing V2")
+local ProteinTab = window:AddTab("Killing V3")
+KillingTab:Show()
+
+local players = game:GetService("Players")
+local localPlayer = players.LocalPlayer
+local camera = workspace.CurrentCamera
+local runService = game:GetService("RunService")
+
+local selectedTargetName = ""
+local lockedPos = nil
+local cleanedPlayers = {}
+local uiConnections = {}
+local blockedFrames = {
+    "strengthFrame", 
+    "durabilityFrame", 
+    "agilityFrame", 
+    "evilKarmaFrame", 
+    "goodKarmaFrame", 
+    "rankLabels", 
+    "nameLabels"
+}
+
+local function formatNumber(num)
+    if num >= 1e6 then return string.format("%.1fM", num / 1e6)
+    elseif num >= 1e3 then return string.format("%.1fk", num / 1e3)
+    end
+    return tostring(math.floor(num))
+end
+
+local function nuclearClean(char)
+    if not char or cleanedPlayers[char] then return end
+    cleanedPlayers[char] = true
+    task.spawn(function()
+        for _, v in pairs(char:GetDescendants()) do
+            if v:IsA("BillboardGui") or v:IsA("SurfaceGui") or v:IsA("GuiObject") or v:IsA("ImageLabel") or v:IsA("TextLabel") then
+                v:Destroy() 
+            elseif v:IsA("BasePart") then
+                v.Transparency = 1
+                v.CanCollide = false
+            elseif v:IsA("Accessory") or v:IsA("Clothing") then
+                v:Destroy()
+            end
+        end
+    end)
+end
+
+local function gettool()
+    local char = localPlayer.Character
+    if not char then return end
+    for _, v in pairs(localPlayer.Backpack:GetChildren()) do
+        if v.Name == "Punch" then
+            char.Humanoid:EquipTool(v)
+        end
+    end
+    localPlayer.muscleEvent:FireServer("punch", "leftHand")
+    localPlayer.muscleEvent:FireServer("punch", "rightHand")
+end
+
+local function killPlayer(target)
+    if not (target and target.Character and target.Character:FindFirstChild("HumanoidRootPart")) then return end
+    local myChar = localPlayer.Character
+    if myChar and myChar:FindFirstChild("LeftHand") then
+        pcall(function()
+            firetouchinterest(target.Character.HumanoidRootPart, myChar.LeftHand, 0)
+            firetouchinterest(target.Character.HumanoidRootPart, myChar.LeftHand, 1)
+            gettool()
+        end)
+    end
+end
+
+local targetDropdown = KillingTab:AddDropdown("Select Target", function(text)
+    selectedTargetName = text:match("| (.+)$") or text
+end)    
+
+local function refreshList()
+    pcall(function() targetDropdown:Clear() end)
+    cleanedPlayers = {}
+    for _, p in pairs(players:GetPlayers()) do
+        if p ~= localPlayer then
+            targetDropdown:Add(p.DisplayName .. " | " .. p.Name)
+        end
+    end
+end
+
+KillingTab:AddButton("Refresh Player List", refreshList)
+ProteinTab:AddLabel("Soon adding more features, Dm me if you got any in mind.")
+KillingTab:AddSwitch("Block All Frames", function(state)
+    _G.HardBlockUI = state
+    local function applyBlock(obj)
+        for _, name in ipairs(blockedFrames) do
+            if obj.Name == name then
+                if obj:IsA("GuiObject") then obj.Visible = false
+                elseif obj:IsA("BillboardGui") then obj.Enabled = false end
+                if state and not uiConnections[obj] then
+                    uiConnections[obj] = obj.Changed:Connect(function()
+                        if _G.HardBlockUI then
+                            if obj:IsA("GuiObject") then obj.Visible = false
+                            elseif obj:IsA("BillboardGui") then obj.Enabled = false end
+                        end
+                    end)
+                end
+            end
+        end
+    end
+    if state then
+        for _, v in pairs(localPlayer.PlayerGui:GetDescendants()) do applyBlock(v) end
+        _G.UIMonitor = localPlayer.PlayerGui.DescendantAdded:Connect(applyBlock)
+    else
+        if _G.UIMonitor then _G.UIMonitor:Disconnect() end
+        for obj, conn in pairs(uiConnections) do
+            conn:Disconnect()
+            if obj:IsA("GuiObject") then obj.Visible = true
+            elseif obj:IsA("BillboardGui") then obj.Enabled = true end
+        end
+        uiConnections = {}
+    end
+end)
+
+KillingTab:AddSwitch("Kill All", function(state)
+    _G.MKill = state
+    if state then
+        local root = localPlayer.Character:FindFirstChild("HumanoidRootPart")
+        if root then lockedPos = root.CFrame end
+        _G.LockLoop = runService.Heartbeat:Connect(function()
+            if _G.MKill and lockedPos and localPlayer.Character then
+                local myRoot = localPlayer.Character:FindFirstChild("HumanoidRootPart")
+                if myRoot then 
+                    myRoot.CFrame = lockedPos 
+                    myRoot.Velocity = Vector3.new(0,0,0)
+                end
+            end
+        end)
+    else
+        if _G.LockLoop then _G.LockLoop:Disconnect() end
+        lockedPos = nil
+    end
+    task.spawn(function()
+        while _G.MKill do
+            local myRoot = localPlayer.Character and localPlayer.Character:FindFirstChild("HumanoidRootPart")
+            if myRoot then
+                for _, p in pairs(players:GetPlayers()) do
+                    if p ~= localPlayer and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
+                        nuclearClean(p.Character)
+                        p.Character.HumanoidRootPart.CFrame = myRoot.CFrame * CFrame.new(0, 0, -2)
+                        killPlayer(p)
+                    end
+                end
+            end
+            task.wait(0.05)
+        end
+    end)
+end)
+
+KillingTab:AddSwitch("Kill Target", function(state)
+    _G.SKill = state
+    task.spawn(function()
+        while _G.SKill do
+            local target = players:FindFirstChild(selectedTargetName)
+            if target then killPlayer(target) end
+            task.wait(0.03)
+        end
+    end)
+end)
+
+KillingTab:AddSwitch("View Target", function(state)
+    _G.Viewing = state
+    task.spawn(function()
+        while _G.Viewing do
+            local target = players:FindFirstChild(selectedTargetName)
+            if target and target.Character and target.Character:FindFirstChild("Humanoid") then
+                camera.CameraSubject = target.Character.Humanoid
+            else
+                camera.CameraSubject = localPlayer.Character:FindFirstChild("Humanoid")
+            end
+            task.wait()
+        end
+        camera.CameraSubject = localPlayer.Character:FindFirstChild("Humanoid")
+    end)
+end)
+
+local healthLabel = HealthTab:AddLabel("Monitoring: None")
+task.spawn(function()
+    while task.wait(0.2) do
+        if selectedTargetName ~= "" then
+            local target = players:FindFirstChild(selectedTargetName)
+            if target and target.Character and target.Character:FindFirstChild("Humanoid") then
+                local h = target.Character.Humanoid
+                healthLabel:Set(target.DisplayName .. "\nHP: " .. formatNumber(h.Health))
+            end
+        end
+    end
+end)
+
+refreshList()
+
+local switch = ProteinTab:AddSwitch("Remove Attack Animations", function(bool)
+    if bool then
+        local blockedAnimations = {
+            ["rbxassetid://3638729053"] = true,
+            ["rbxassetid://3638767427"] = true,
+        }
+
+        local function setupAnimationBlocking()
+            local char = game.Players.LocalPlayer.Character
+            if not char or not char:FindFirstChild("Humanoid") then return end
+
+            local humanoid = char:FindFirstChild("Humanoid")
+
+            for _, track in pairs(humanoid:GetPlayingAnimationTracks()) do
+                if track.Animation then
+                    local animId = track.Animation.AnimationId
+                    local animName = track.Name:lower()
+
+                    if blockedAnimations[animId] or animName:match("punch") or animName:match("attack") or animName:match("right") then
+                        track:Stop()
+                    end
+                end
+            end
+
+            _G.AnimBlockConnection = humanoid.AnimationPlayed:Connect(function(track)
+                if track.Animation then
+                    local animId = track.Animation.AnimationId
+                    local animName = track.Name:lower()
+
+                    if blockedAnimations[animId] or animName:match("punch") or animName:match("attack") or animName:match("right") then
+                        track:Stop()
+                    end
+                end
+            end)
+        end
+
+        local function processTool(tool)
+            if tool and (tool.Name == "Punch" or tool.Name:match("Attack") or tool.Name:match("Right")) then
+                if not tool:GetAttribute("ActivatedOverride") then
+                    tool:SetAttribute("ActivatedOverride", true)
+
+                    _G.ToolConnections = _G.ToolConnections or {}
+                    _G.ToolConnections[tool] = tool.Activated:Connect(function()
+                        task.wait(0.05)
+                        local char = game.Players.LocalPlayer.Character
+                        if char and char:FindFirstChild("Humanoid") then
+                            for _, track in pairs(char.Humanoid:GetPlayingAnimationTracks()) do
+                                if track.Animation then
+                                    local animId = track.Animation.AnimationId
+                                    local animName = track.Name:lower()
+
+                                    if blockedAnimations[animId] or animName:match("punch") or animName:match("attack") or animName:match("right") then
+                                        track:Stop()
+                                    end
+                                end
+                            end
+                        end
+                    end)
+                end
+            end
+        end
+
+        local function overrideToolActivation()
+            for _, tool in pairs(game.Players.LocalPlayer.Backpack:GetChildren()) do
+                processTool(tool)
+            end
+
+            local char = game.Players.LocalPlayer.Character
+            if char then
+                for _, tool in pairs(char:GetChildren()) do
+                    if tool:IsA("Tool") then
+                        processTool(tool)
+                    end
+                end
+            end
+
+            _G.BackpackAddedConnection = game.Players.LocalPlayer.Backpack.ChildAdded:Connect(function(child)
+                if child:IsA("Tool") then
+                    task.wait(0.1)
+                    processTool(child)
+                end
+            end)
+
+            if char then
+                _G.CharacterToolAddedConnection = char.ChildAdded:Connect(function(child)
+                    if child:IsA("Tool") then
+                        task.wait(0.1)
+                        processTool(child)
+                    end
+                end)
+            end
+        end
+
+        _G.AnimMonitorConnection = game:GetService("RunService").Heartbeat:Connect(function()
+            if tick() % 0.5 < 0.01 then
+                local char = game.Players.LocalPlayer.Character
+                if char and char:FindFirstChild("Humanoid") then
+                    for _, track in pairs(char.Humanoid:GetPlayingAnimationTracks()) do
+                        if track.Animation then
+                            local animId = track.Animation.AnimationId
+                            local animName = track.Name:lower()
+
+                            if blockedAnimations[animId] or animName:match("punch") or animName:match("attack") or animName:match("right") then
+                                track:Stop()
+                            end
+                        end
+                    end
+                end
+            end
+        end)
+
+        _G.CharacterAddedConnection = game.Players.LocalPlayer.CharacterAdded:Connect(function(newChar)
+            task.wait(1)
+            setupAnimationBlocking()
+            overrideToolActivation()
+
+            if _G.CharacterToolAddedConnection then
+                _G.CharacterToolAddedConnection:Disconnect()
+            end
+
+            _G.CharacterToolAddedConnection = newChar.ChildAdded:Connect(function(child)
+                if child:IsA("Tool") then
+                    task.wait(0.1)
+                    processTool(child)
+                end
+            end)
+        end)
+
+        setupAnimationBlocking()
+        overrideToolActivation()
+    else
+        if _G.AnimBlockConnection then
+            _G.AnimBlockConnection:Disconnect()
+            _G.AnimBlockConnection = nil
+        end
+
+        if _G.AnimMonitorConnection then
+            _G.AnimMonitorConnection:Disconnect()
+            _G.AnimMonitorConnection = nil
+        end
+
+        if _G.CharacterAddedConnection then
+            _G.CharacterAddedConnection:Disconnect()
+            _G.CharacterAddedConnection = nil
+        end
+
+        if _G.BackpackAddedConnection then
+            _G.BackpackAddedConnection:Disconnect()
+            _G.BackpackAddedConnection = nil
+        end
+
+        if _G.CharacterToolAddedConnection then
+            _G.CharacterToolAddedConnection:Disconnect()
+            _G.CharacterToolAddedConnection = nil
+        end
+
+        if _G.ToolConnections then
+            for tool, connection in pairs(_G.ToolConnections) do
+                if connection then
+                    connection:Disconnect()
+                end
+                if tool and tool:GetAttribute("ActivatedOverride") then
+                    tool:SetAttribute("ActivatedOverride", nil)
+                end
+            end
+            _G.ToolConnections = nil
+        end
+    end
+end)
+
+switch:Set(false)
+
+
+local player = game:GetService("Players").LocalPlayer
+
+local comboActive = false
+local eggLoop, characterAddedConn
+
+local function ensureEggEquipped()
+    if not comboActive or not player.Character then return end
+    
+    local eggsInHand = 0
+    for _, item in ipairs(player.Character:GetChildren()) do
+        if item.Name == "Protein Egg" then
+            eggsInHand += 1
+            if eggsInHand > 1 then
+                item.Parent = player.Backpack
+            end
+        end
+    end
+    
+    if eggsInHand == 0 then
+        local egg = player.Backpack:FindFirstChild("Protein Egg")
+        if egg then
+            egg.Parent = player.Character
+        end
+    end
+end
+
+local comboSwitch = KillingTab:AddSwitch("NaN (Egg+NaN+Punch Combo)", function(bool)
+    comboActive = bool
+    
+    if bool then
+        changeSpeedSizeRemote:InvokeServer("changeSize", 0/0)
+        
+        eggLoop = task.spawn(function()
+            while comboActive do
+                ensureEggEquipped()
+                task.wait(0.2)
+            end
+        end)
+        
+        characterAddedConn = player.CharacterAdded:Connect(function(newChar)
+            task.wait(0.5)
+            ensureEggEquipped()
+        end)
+        
+        ensureEggEquipped()
+        
+    else
+        if eggLoop then task.cancel(eggLoop) end
+        if characterAddedConn then characterAddedConn:Disconnect() end
+    end
+end)
+
+comboSwitch:Set(false)
+
+KillingTab:AddLabel("Auto Kill:").TextSize = 22
+
+_G.whitelistedPlayers = _G.whitelistedPlayers or {}
+_G.blacklistedPlayers = _G.blacklistedPlayers or {}
+
+local function isWhitelisted(player)
+    for _, name in ipairs(_G.whitelistedPlayers) do
+        if name:lower() == player.Name:lower() then
+            return true
+        end
+    end
+    return false
+end
+
+local function isBlacklisted(player)
+    for _, name in ipairs(_G.blacklistedPlayers) do
+        if name:lower() == player.Name:lower() then
+            return true
+        end
+    end
+    return false
+end
+
+local function getPlayerDisplayText(player)
+    return player.DisplayName .. " | " .. player.Name
+end
+
+local whitelistDropdown = KillingTab:AddDropdown("Add to Whitelist", function(selectedText)
+    local playerName = selectedText:match("| (.+)$")
+    if playerName then
+        playerName = playerName:gsub("^%s*(.-)%s*$", "%1") 
+        for _, name in ipairs(_G.whitelistedPlayers) do
+            if name:lower() == playerName:lower() then return end
+        end
+        table.insert(_G.whitelistedPlayers, playerName)
+    end
+end)
+
+local switch = KillingTab:AddSwitch("Kill Everyone", function(bool)
+    _G.killAll = bool
+    if bool then
+        if not _G.killAllConnection then
+            _G.killAllConnection = game:GetService("RunService").Heartbeat:Connect(function()
+                if _G.killAll then
+                    for _, player in ipairs(game:GetService("Players"):GetPlayers()) do
+                        if player ~= game.Players.LocalPlayer and not isWhitelisted(player) then
+                            killPlayer(player)
+                        end
+                    end
+                end
+            end)
+        end
+    else
+        if _G.killAllConnection then
+            _G.killAllConnection:Disconnect()
+            _G.killAllConnection = nil
+        end
+    end
+end)
+switch:Set(false)
+
+local switch = KillingTab:AddSwitch("Whitelist Friends", function(bool)
+    _G.whitelistFriends = bool
+
+    if bool then
+        for _, player in pairs(game.Players:GetPlayers()) do
+            if player ~= game.Players.LocalPlayer and player:IsFriendsWith(game.Players.LocalPlayer.UserId) then
+                local playerName = player.Name
+                local alreadyWhitelisted = false
+                for _, name in ipairs(_G.whitelistedPlayers) do
+                    if name:lower() == playerName:lower() then
+                        alreadyWhitelisted = true
+                        break
+                    end
+                end
+                if not alreadyWhitelisted then
+                    table.insert(_G.whitelistedPlayers, playerName)
+                end
+            end
+        end
+
+        game.Players.PlayerAdded:Connect(function(player)
+            if _G.whitelistFriends and player:IsFriendsWith(game.Players.LocalPlayer.UserId) then
+                local playerName = player.Name
+                local alreadyWhitelisted = false
+                for _, name in ipairs(_G.whitelistedPlayers) do
+                    if name:lower() == playerName:lower() then
+                        alreadyWhitelisted = true
+                        break
+                    end
+                end
+                if not alreadyWhitelisted then
+                    table.insert(_G.whitelistedPlayers, playerName)
+                end
+            end
+        end)
+    end
+end)
+
+switch:Set(false)
+
+KillingTab:AddLabel("")
+
+local blacklistDropdown = KillingTab:AddDropdown("Add to Killlist", function(selectedText)
+    local playerName = selectedText:match("| (.+)$")
+    if playerName then
+        playerName = playerName:gsub("^%s*(.-)%s*$", "%1") 
+        for _, name in ipairs(_G.blacklistedPlayers) do
+            if name:lower() == playerName:lower() then return end
+        end
+        table.insert(_G.blacklistedPlayers, playerName)
+    end
+end)
+
+for _, player in ipairs(game:GetService("Players"):GetPlayers()) do
+    if player ~= game.Players.LocalPlayer then
+        local displayText = getPlayerDisplayText(player)
+        whitelistDropdown:Add(displayText)
+        blacklistDropdown:Add(displayText)
+    end
+end
+
+game:GetService("Players").PlayerAdded:Connect(function(player)
+    if player ~= game.Players.LocalPlayer then
+        local displayText = getPlayerDisplayText(player)
+        whitelistDropdown:Add(displayText)
+        blacklistDropdown:Add(displayText)
+    end
+end)
+
+
+local blacklistKillSwitch = KillingTab:AddSwitch("Kill List", function(bool)
+    _G.killBlacklistedOnly = bool
+    if bool then
+        if not _G.blacklistKillConnection then
+            _G.blacklistKillConnection = game:GetService("RunService").Heartbeat:Connect(function()
+                if _G.killBlacklistedOnly then
+                    for _, player in ipairs(game:GetService("Players"):GetPlayers()) do
+                        if player ~= game.Players.LocalPlayer and isBlacklisted(player) then
+                            killPlayer(player)
+                        end
+                    end
+                end
+            end)
+        end
+    else
+        if _G.blacklistKillConnection then
+            _G.blacklistKillConnection:Disconnect()
+            _G.blacklistKillConnection = nil
+        end
+    end
+end)
+
+local selectedPlayerToSpectate = nil
+local spectating = false
+local currentTargetConnection = nil
+local camera = workspace.CurrentCamera
+
+local function updateSpectateTarget(player)
+    if currentTargetConnection then
+        currentTargetConnection:Disconnect()
+    end
+    
+    if player and player.Character then
+        local humanoid = player.Character:FindFirstChildOfClass("Humanoid")
+        if humanoid then
+            camera.CameraSubject = humanoid
+            currentTargetConnection = player.CharacterAdded:Connect(function(newChar)
+                task.wait(0.2)
+                local newHumanoid = newChar:FindFirstChildOfClass("Humanoid")
+                if newHumanoid then
+                    camera.CameraSubject = newHumanoid
+                end
+            end)
+        end
+    end
+end
+
+local function updatePlayerList()
+    return game.Players:GetPlayers()
+end
+
+local specdropdown = KillingTab:AddDropdown("Choose Player", function(text)
+    for _, player in ipairs(updatePlayerList()) do
+        local optionText = player.DisplayName .. " | " .. player.Name
+        if text == optionText then
+            selectedPlayerToSpectate = player
+            if spectating then
+                updateSpectateTarget(player)
+            end
+            break
+        end
+    end
+end)
+
+local spectateSwitch = KillingTab:AddSwitch("Spectate", function(bool)
+    spectating = bool
+    if spectating and selectedPlayerToSpectate then
+        updateSpectateTarget(selectedPlayerToSpectate)
+    else
+        if currentTargetConnection then
+            currentTargetConnection:Disconnect()
+            currentTargetConnection = nil
+        end
+        local localPlayer = game.Players.LocalPlayer
+        if localPlayer.Character then
+            local humanoid = localPlayer.Character:FindFirstChildOfClass("Humanoid")
+            if humanoid then
+                camera.CameraSubject = humanoid
+            end
+        end
+    end
+end)
+
+for _, player in ipairs(updatePlayerList()) do
+    specdropdown:Add(player.DisplayName .. " | " .. player.Name)
+end
+
+game.Players.PlayerAdded:Connect(function(player)
+    specdropdown:Add(player.DisplayName .. " | " .. player.Name)
+end)
+
+game.Players.PlayerRemoving:Connect(function(player)
+    if selectedPlayerToSpectate and selectedPlayerToSpectate == player then
+        selectedPlayerToSpectate = nil
+        if spectating then
+            spectateSwitch:Set(false)
+        end
+    end
+end)
+
+HealthTab:AddLabel("Kill Aura:").TextSize = 22
+
+local ringPart = nil
+local ringColor = Color3.fromRGB(50, 163, 255)
+local ringTransparency = 0.6
+_G.showDeathRing = false
+_G.deathRingRange = 20
+
+local function updateRingSize()
+    if not ringPart then return end
+    local diameter = (_G.deathRingRange or 20) * 2
+    ringPart.Size = Vector3.new(0.2, diameter, diameter)
+end
+
+HealthTab:AddTextBox("Range 1-140", function(text)
+    local range = tonumber(text)
+    if range then
+        _G.deathRingRange = math.clamp(range, 1, 140)
+        updateRingSize()
+    end
+end)
+
+local function toggleRingVisual()
+    if _G.showDeathRing then
+        ringPart = Instance.new("Part")
+        ringPart.Shape = Enum.PartType.Cylinder
+        ringPart.Material = Enum.Material.Neon
+        ringPart.Color = ringColor
+        ringPart.Transparency = ringTransparency
+        ringPart.Anchored = true
+        ringPart.CanCollide = false
+        ringPart.CastShadow = false
+        updateRingSize()
+        ringPart.Parent = workspace
+    elseif ringPart then
+        ringPart:Destroy()
+        ringPart = nil
+    end
+end
+
+local function updateRingPosition()
+    if not ringPart then return end
+    local character = checkCharacter()
+    local rootPart = character and character:FindFirstChild("HumanoidRootPart")
+    if rootPart then
+        ringPart.CFrame = rootPart.CFrame * CFrame.Angles(0, 0, math.rad(90))
+    end
+end
+
+local deathRingSwitch = HealthTab:AddSwitch("Death Ring", function(bool)
+    _G.deathRingEnabled = bool
+    
+    if bool then
+        if not _G.deathRingConnection then
+            _G.deathRingConnection = game:GetService("RunService").Heartbeat:Connect(function()
+                updateRingPosition()
+                
+                local character = checkCharacter()
+                local myPosition = character and character:FindFirstChild("HumanoidRootPart") and character.HumanoidRootPart.Position
+                if not myPosition then return end
+
+                for _, player in ipairs(game:GetService("Players"):GetPlayers()) do
+                    if player ~= game.Players.LocalPlayer and not isWhitelisted(player) and isPlayerAlive(player) then
+                        local distance = (myPosition - player.Character.HumanoidRootPart.Position).Magnitude
+                        if distance <= (_G.deathRingRange or 20) then
+                            killPlayer(player)
+                        end
+                    end
+                end
+            end)
+        end
+    else
+        if _G.deathRingConnection then
+            _G.deathRingConnection:Disconnect()
+            _G.deathRingConnection = nil
+        end
+    end
+end)
+
+local visualRingSwitch = HealthTab:AddSwitch("Show Ring", function(bool)
+    _G.showDeathRing = bool
+    toggleRingVisual()
+end)
+deathRingSwitch:Set(false)
+visualRingSwitch:Set(false)
+
+local whitelistLabel = HealthTab:AddLabel("Whitelist: None")
+whitelistLabel.TextColor3 = Color3.fromRGB(26, 122, 212)
+whitelistLabel.TextSize = 17
+
+HealthTab:AddButton("Clear Whitelist", function()
+    _G.whitelistedPlayers = {}
+end)
+
+local blacklistLabel = HealthTab:AddLabel("Killlist: None")
+blacklistLabel.TextColor3 = Color3.fromRGB(191, 58, 25)
+blacklistLabel.TextSize = 17
+
+HealthTab:AddButton("Clear Blacklist", function()
+    _G.blacklistedPlayers = {}
+end)
+
+local function updateWhitelistLabel()
+    if #_G.whitelistedPlayers == 0 then
+        whitelistLabel.Text = "Whitelist: None"
+    else
+        whitelistLabel.Text = "Whitelist: " .. table.concat(_G.whitelistedPlayers, ", ")
+    end
+end
+
+local function updateBlacklistLabel()
+    if #_G.blacklistedPlayers == 0 then
+        blacklistLabel.Text = "Killlist: None"
+    else
+        blacklistLabel.Text = "Killlist: " .. table.concat(_G.blacklistedPlayers, ", ")
+    end
+end
+
+task.spawn(function()
+    while true do
+        updateWhitelistLabel()
+        updateBlacklistLabel()
+        task.wait(0.2)
+    end
+end)
+local player = game.Players.LocalPlayer
+local replicatedStorage = game:GetService("ReplicatedStorage")  
+
+local running = false
+
+HealthTab:AddSwitch("Pack Spam", function(state)
+    running = state
+
+    if state then
+        task.spawn(function()
+            while running do
+
+                -- EQUIP ALL Mighty Monster
+                for _, pet in pairs(player.petsFolder:GetDescendants()) do
+                    if pet.Name == "Mighty Monster" then
+                        replicatedStorage.rEvents.equipPetEvent:FireServer("equipPet", pet)
+                    end
+                end
+
+                task.wait(1)
+                if not running then break end
+
+                -- UNEQUIP ALL Mighty Monster
+                for _, pet in pairs(player.petsFolder:GetDescendants()) do
+                    if pet.Name == "Mighty Monster" then
+                        replicatedStorage.rEvents.equipPetEvent:FireServer("unequipPet", pet)
+                    end
+                end
+
+                -- EQUIP ALL Wild Wizard
+                for _, pet in pairs(player.petsFolder:GetDescendants()) do
+                    if pet.Name == "Wild Wizard" then
+                        replicatedStorage.rEvents.equipPetEvent:FireServer("equipPet", pet)
+                    end
+                end
+
+                task.wait(1)
+                if not running then break end
+
+                -- UNEQUIP ALL Wild Wizard
+                for _, pet in pairs(player.petsFolder:GetDescendants()) do
+                    if pet.Name == "Wild Wizard" then
+                        replicatedStorage.rEvents.equipPetEvent:FireServer("unequipPet", pet)
+                    end
+                end
+
+            end
+        end)
+    end
+end)
+
+
